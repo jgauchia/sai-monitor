@@ -265,14 +265,25 @@ charge thresholds coincide.
 ## Deploying from Portainer
 
 The recommended path is a Git-backed Portainer stack, because the compose file
-builds the image from this repository.
+builds the image from this repository on the Docker host.
 
-1. Push this directory to a Git repository.
-2. In Portainer, go to **Stacks → Add stack**.
-3. Choose **Repository**, select the repository and branch.
+The project repository is:
+
+```text
+https://github.com/jgauchia/sai-monitor.git
+```
+
+Use your fork's URL instead if you deploy your own copy.
+
+1. In Portainer, go to **Stacks → Add stack**.
+2. Choose **Repository**.
+3. Set the **Repository URL** to the URL above and the branch to `main`.
 4. Set **Compose path** to `docker-compose.yml`.
-5. Add the environment variables in the **Environment variables** section.
-6. Deploy the stack.
+5. If the repository is private, configure the GitHub credentials in Portainer
+   (username plus a personal access token with repository read access).
+6. Add the environment variables in the **Environment variables** section.
+7. Deploy the stack. Portainer builds the image on that host from the
+   `Dockerfile`.
 
 A minimal set for a real UPS:
 
@@ -304,8 +315,20 @@ SAI_SIMULATE=1
 SAI_DEVICE=/dev/null
 ```
 
-The stack must run on the Docker host that has the UPS connected. Do not scale
-it beyond one replica: only one process can own the serial device.
+Portainer does not read the local `.env` file; enter all values in the stack's
+**Environment variables** section. The first deployment creates a new, empty
+`sai_monitor_data` volume, so it does not inherit history from another host.
+
+The stack must run on the Docker host that has the UPS connected. Verify the
+device and its group before deploying:
+
+```bash
+ls -l /dev/ttyUSB0
+stat -c '%g' /dev/ttyUSB0
+```
+
+Use that GID for `SAI_DIALOUT_GID`. Do not scale the stack beyond one replica:
+only one process can own the serial device.
 
 If you prefer to build on the host first:
 
