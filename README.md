@@ -75,7 +75,7 @@ UPS -- serial (2400 8N1) --> sampler thread --> SQLite
 - Small JSON API plus Prometheus-style `/metrics`.
 - Simulation mode for development without hardware.
 - Single Docker image, non-root UID 1000, named data volume and optional fixed
-  IP (macvlan) deployment.
+  IP (macvlan) deployment with the same compose file.
 
 ## Requirements
 
@@ -101,6 +101,9 @@ docker compose up -d --build
 ```
 
 Open `http://<host>:8000` (or the port set in `SAI_WEB_PORT`).
+
+For a fixed container IP on an existing macvlan network, see
+[Fixed container IP with macvlan](#fixed-container-ip-with-macvlan-optional).
 
 The container always listens on port `8000`; only the published host port
 changes:
@@ -220,7 +223,7 @@ writes by 5x. Use 2 seconds if you need to detect very short mains cuts, or
 | `SAI_DEVICE` | `/dev/ttyUSB0` | Host device mapped by `docker-compose.yml` |
 | `SAI_DIALOUT_GID` | `20` | Host GID that owns the serial device (compose only) |
 
-`SAI_DEVICE` and `SAI_DIALOUT_GID` are consumed by the compose files. With a
+`SAI_DEVICE` and `SAI_DIALOUT_GID` are consumed by the compose file. With a
 plain `docker run`, use `--device` and `--group-add` instead.
 
 ### Storage
@@ -234,9 +237,16 @@ plain `docker run`, use `--device` and `--group-add` instead.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `SAI_WEB_PORT` | `8000` | Host port published by the base compose file |
-| `SAI_CONTAINER_IP` | `192.168.1.50` | Fixed container IP for the macvlan variant |
-| `SAI_NETWORK_NAME` | `sai_macvlan` | External macvlan network name |
+| `SAI_WEB_PORT` | `8000` | Host port published by the compose file |
+| `SAI_NETWORK_NAME` | `sai_monitor_net` | Network name. Compose creates it as a bridge by default |
+| `SAI_NETWORK_EXTERNAL` | `false` | Set to `true` to use an existing external network (for example macvlan) |
+| `SAI_CONTAINER_IP` | empty | Optional fixed IP inside an external network; leave empty in bridge mode |
+
+With the default `SAI_NETWORK_EXTERNAL=false`, Compose creates
+`SAI_NETWORK_NAME` as a bridge network. For a fixed LAN IP, set
+`SAI_NETWORK_EXTERNAL=true`, point `SAI_NETWORK_NAME` to an existing macvlan
+network and set `SAI_CONTAINER_IP` to a free address in its subnet. See
+[Fixed container IP with macvlan](#fixed-container-ip-with-macvlan-optional).
 
 ### UPS and battery
 
@@ -319,6 +329,11 @@ Portainer does not read the local `.env` file; enter all values in the stack's
 **Environment variables** section. The first deployment creates a new, empty
 `sai_monitor_data` volume, so it does not inherit history from another host.
 
+For a fixed IP on an existing macvlan network, also set
+`SAI_NETWORK_EXTERNAL=true`, `SAI_NETWORK_NAME` and `SAI_CONTAINER_IP` as
+described in
+[Fixed container IP with macvlan](#fixed-container-ip-with-macvlan-optional).
+
 The stack must run on the Docker host that has the UPS connected. Verify the
 device and its group before deploying:
 
@@ -341,13 +356,15 @@ Then a Portainer stack can reference the local `sai-monitor:latest` image.
 
 ### Fixed container IP with macvlan (optional)
 
-The base compose file publishes a port on the Docker host. For most home
-deployments, the simplest way to keep a stable address is a **DHCP reservation**
-for the Docker host in the router: keep the base compose file and reserve the
-host IP. The dashboard stays at `http://<host>:8000`.
+By default the compose file publishes a port on the Docker host and Compose
+creates a bridge network named `sai_monitor_net`. For most home deployments,
+the simplest way to keep a stable address is a **DHCP reservation** for the
+Docker host in the router: keep the default settings and reserve the host IP.
+The dashboard stays at `http://<host>:8000`.
 
-If you specifically need a fixed IP **for the container** on the LAN, use a
-macvlan network. Create it once on the Docker host:
+If you need a fixed IP **for the container** on the LAN, use a macvlan network.
+The same `docker-compose.yml` supports it; there is no second compose file.
+Create the network once on the Docker host:
 
 ```bash
 docker network create -d macvlan \
@@ -358,42 +375,51 @@ docker network create -d macvlan \
 ```
 
 Replace the subnet, gateway and `parent` interface with the values of the Docker
-host (`ip route` and `ip -br link`). This network is declared as `external` in
-the compose file, so Portainer cannot create it from the stack.
+host (`ip route` and `ip -br link`).
 
 If the macvlan network already exists (for example, created from Portainer), skip
 the `docker network create` command. Open **Networks** in Portainer and check its
-**Driver** and **IPAM** subnet, then set `SAI_NETWORK_NAME` to its exact name and
-`SAI_CONTAINER_IP` to a free address inside that subnet. It must be a macvlan
-network for the container IP to be reachable from the LAN; a bridge network only
-provides an internal Docker address.
+**Driver** and **IPAM** subnet.
 
-Then use the overlay file instead of the base stack:
+Set these variables in `.env` or in the Portainer stack:
 
-```bash
-docker compose -f docker-compose.macvlan.yml up -d --build
+```text
+SAI_NETWORK_EXTERNAL=true
+SAI_NETWORK_NAME=sai_macvlan
+SAI_CONTAINER_IP=192.168.1.50
 ```
 
-In Portainer, create the stack with **Compose path**
-`docker-compose.macvlan.yml` instead of `docker-compose.yml`, and add
-`SAI_CONTAINER_IP` and `SAI_NETWORK_NAME` to the stack's environment variables.
-Setting them in the base stack has no effect. With macvlan there is no published
-port; open the dashboard directly at `http://SAI_CONTAINER_IP:8000` from another
-device on the LAN.
+Use the exact network name and a free IP inside its subnet. Choose an IP outside
+the router's DHCP pool, or reserve it in the router.
 
-Choose an IP outside the router's DHCP pool, or reserve it in the router, so it
-cannot be assigned to another device.
+The container is attached to the macvlan network and to a normal bridge network
+at the same time. The bridge keeps the published port working, so the dashboard
+is available at both:
+
+```text
+http://SAI_CONTAINER_IP:8000   from the LAN
+http://<host>:8000            through the published port
+```
+
+This also means the Docker host can use the published port even though it
+normally cannot reach a macvlan address directly.
 
 Notes:
 
 - `parent=eth0` must be the physical interface of the Docker host. A macvlan
   parent cannot be a bridge or a VLAN sub-interface without extra setup. If the
-  host uses Wi-Fi, macvlan may not work reliably; prefer the base compose file
-  with a DHCP reservation.
-- A container on a macvlan network is normally not reachable from its own
-  Docker host. This is expected; open the dashboard from another device on the
-  LAN.
-- The base and macvlan compose files are alternatives. Use only one of them.
+  host uses Wi-Fi, macvlan may not work reliably; prefer the default bridge
+  mode with a DHCP reservation.
+- `SAI_CONTAINER_IP` is only meaningful with an existing external network
+  (`SAI_NETWORK_EXTERNAL=true`) whose subnet contains that address. Leave it
+  empty in bridge mode.
+- The external network is not created by the stack. It must exist before you
+  deploy.
+- The macvlan address itself is normally not reachable from the Docker host;
+  from the host, use the published port.
+- If the existing network is a bridge network instead of macvlan, the fixed IP
+  is internal to Docker and not reachable from the LAN. The published port still
+  works at `http://<host>:8000`.
 
 ## Updating an existing deployment
 
@@ -403,8 +429,8 @@ container. Recreating the container with `docker compose up -d` or Portainer's
 
 > **Do not use `docker compose down -v`** unless you intentionally want to
 > delete the database and every outage record. With Compose,
-> `docker compose down` (without `-v`) removes the container and network but
-> keeps the named volume.
+> `docker compose down` (without `-v`) removes the container and the
+> Compose-managed networks but keeps the named volume.
 
 ### Docker Compose on the server
 
@@ -743,8 +769,7 @@ web/vendor/chart.umd.min.js  Vendored Chart.js
 tests/                       Unit and integration tests
 docs/dashboard.png           Dashboard screenshot used in this README
 Dockerfile                   Python 3.13 image, non-root UID 1000
-docker-compose.yml           Base Portainer/Compose stack (published port)
-docker-compose.macvlan.yml   Optional fixed-IP stack
+docker-compose.yml           Single Compose/Portainer stack (bridge or macvlan)
 .env.example                 Deployment environment template
 ```
 

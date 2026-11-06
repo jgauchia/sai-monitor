@@ -43,6 +43,22 @@ services:
     volumes:
       - sai_data:/data
 
+    networks:
+      # Always attach to a bridge network so the published port works. Docker
+      # cannot publish ports on a macvlan network alone.
+      default: {}
+
+      # Bridge mode: Compose creates this network.
+      # Macvlan mode: set SAI_NETWORK_EXTERNAL=true, SAI_NETWORK_NAME and
+      # SAI_CONTAINER_IP to attach the same service to the existing network.
+      sai_net:
+        ipv4_address: "${SAI_CONTAINER_IP:-}"
+
 volumes:
   sai_data:
     name: sai_monitor_data
+
+networks:
+  sai_net:
+    name: "${SAI_NETWORK_NAME:-sai_monitor_net}"
+    external: "${SAI_NETWORK_EXTERNAL:-false}"
