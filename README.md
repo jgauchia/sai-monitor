@@ -389,8 +389,13 @@ SAI_NETWORK_NAME=sai_macvlan
 SAI_CONTAINER_IP=192.168.1.50
 ```
 
-Use the exact network name and a free IP inside its subnet. Choose an IP outside
-the router's DHCP pool, or reserve it in the router.
+Replace `sai_macvlan` with the exact name shown in Portainer (for example,
+`doker-net` if that is your network) and use a free IP inside its subnet. Choose
+an IP outside the router's DHCP pool, or reserve it in the router.
+
+In Portainer, keep **Compose path** as `docker-compose.yml` for both modes. Do
+not select a different compose file; the network mode is chosen by the
+environment variables.
 
 The container is attached to the macvlan network and to a normal bridge network
 at the same time. The bridge keeps the published port working, so the dashboard
