@@ -341,9 +341,13 @@ Then a Portainer stack can reference the local `sai-monitor:latest` image.
 
 ### Fixed container IP with macvlan (optional)
 
-The base compose file publishes a port on the Docker host. If you need a fixed
-IP on the LAN for the dashboard, create a macvlan network on the Docker host
-first:
+The base compose file publishes a port on the Docker host. For most home
+deployments, the simplest way to keep a stable address is a **DHCP reservation**
+for the Docker host in the router: keep the base compose file and reserve the
+host IP. The dashboard stays at `http://<host>:8000`.
+
+If you specifically need a fixed IP **for the container** on the LAN, use a
+macvlan network. Create it once on the Docker host:
 
 ```bash
 docker network create -d macvlan \
@@ -353,20 +357,32 @@ docker network create -d macvlan \
   sai_macvlan
 ```
 
+Replace the subnet, gateway and `parent` interface with the values of the Docker
+host (`ip route` and `ip -br link`). This network is declared as `external` in
+the compose file, so Portainer cannot create it from the stack.
+
 Then use the overlay file instead of the base stack:
 
 ```bash
 docker compose -f docker-compose.macvlan.yml up -d --build
 ```
 
-Set `SAI_CONTAINER_IP` and `SAI_NETWORK_NAME` in `.env` (or in Portainer). With
-macvlan there is no published port; open the dashboard directly at
-`http://SAI_CONTAINER_IP:8000` from another device on the LAN.
+In Portainer, create the stack with **Compose path**
+`docker-compose.macvlan.yml` instead of `docker-compose.yml`, and add
+`SAI_CONTAINER_IP` and `SAI_NETWORK_NAME` to the stack's environment variables.
+Setting them in the base stack has no effect. With macvlan there is no published
+port; open the dashboard directly at `http://SAI_CONTAINER_IP:8000` from another
+device on the LAN.
+
+Choose an IP outside the router's DHCP pool, or reserve it in the router, so it
+cannot be assigned to another device.
 
 Notes:
 
 - `parent=eth0` must be the physical interface of the Docker host. A macvlan
-  parent cannot be a bridge or a VLAN sub-interface without extra setup.
+  parent cannot be a bridge or a VLAN sub-interface without extra setup. If the
+  host uses Wi-Fi, macvlan may not work reliably; prefer the base compose file
+  with a DHCP reservation.
 - A container on a macvlan network is normally not reachable from its own
   Docker host. This is expected; open the dashboard from another device on the
   LAN.
