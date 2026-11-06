@@ -289,10 +289,8 @@ Use your fork's URL instead if you deploy your own copy.
 2. Choose **Repository**.
 3. Set the **Repository URL** to the URL above and the branch to `main`.
 4. Set **Compose path** to `docker-compose.yml`.
-5. If the repository is private, configure the GitHub credentials in Portainer
-   (username plus a personal access token with repository read access).
-6. Add the environment variables in the **Environment variables** section.
-7. Deploy the stack. Portainer builds the image on that host from the
+5. Add the environment variables in the **Environment variables** section.
+6. Deploy the stack. Portainer builds the image on that host from the
    `Dockerfile`.
 
 A minimal set for a real UPS:
