@@ -361,6 +361,13 @@ Replace the subnet, gateway and `parent` interface with the values of the Docker
 host (`ip route` and `ip -br link`). This network is declared as `external` in
 the compose file, so Portainer cannot create it from the stack.
 
+If the macvlan network already exists (for example, created from Portainer), skip
+the `docker network create` command. Open **Networks** in Portainer and check its
+**Driver** and **IPAM** subnet, then set `SAI_NETWORK_NAME` to its exact name and
+`SAI_CONTAINER_IP` to a free address inside that subnet. It must be a macvlan
+network for the container IP to be reachable from the LAN; a bridge network only
+provides an internal Docker address.
+
 Then use the overlay file instead of the base stack:
 
 ```bash
