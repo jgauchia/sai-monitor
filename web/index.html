@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>UPS Monitor</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-text">
+          <h1 id="web-title">UPS Monitor</h1>
+          <p id="ups-name">Megatec/Q1 UPS</p>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <span id="sim-badge" class="badge badge-sim hidden">Simulation</span>
+        <span id="status-pill" class="pill pill-offline">
+          <span class="dot" aria-hidden="true"></span>
+          <span id="status-text">Connecting…</span>
+        </span>
+        <button id="toggle-btn" class="btn btn-connect" type="button">Connect</button>
+      </div>
+    </header>
+
+    <div id="alert" class="alert hidden" role="alert">
+      <span id="alert-text"></span>
+    </div>
+
+    <main>
+      <section class="overview" aria-label="Current UPS status">
+        <article class="card battery-card">
+          <div class="card-head">
+            <h2>Battery</h2>
+            <div class="tag-group">
+              <span id="battery-state" class="tag hidden">—</span>
+              <span id="charge-source" class="tag hidden">estimated</span>
+            </div>
+          </div>
+          <div id="battery-gauge" class="battery-gauge" style="--charge: 0">
+            <div class="battery-inner">
+              <strong id="charge-value">—</strong>
+              <span>charge</span>
+            </div>
+          </div>
+          <dl class="mini-stats">
+            <div>
+              <dt>Voltage</dt>
+              <dd id="battery-voltage">—</dd>
+            </div>
+            <div>
+              <dt>Runtime</dt>
+              <dd id="runtime">—</dd>
+            </div>
+          </dl>
+          <p id="charge-note" class="hint">Waiting for the first sample.</p>
+        </article>
+
+        <article class="card state-card">
+          <div class="card-head">
+            <h2>Power status</h2>
+            <span id="topology" class="tag hidden">standby</span>
+          </div>
+          <p id="power-state" class="state-title">Waiting for data…</p>
+          <p id="power-sub" class="state-sub">No sample received yet.</p>
+          <div id="status-bits" class="status-bits">
+            <span class="bit bit-muted">No active alarms</span>
+          </div>
+          <dl class="mini-stats mini-stats-3">
+            <div>
+              <dt>Output power</dt>
+              <dd id="power-w">—</dd>
+            </div>
+            <div>
+              <dt>Session</dt>
+              <dd id="session-uptime">—</dd>
+            </div>
+            <div>
+              <dt>Outages</dt>
+              <dd id="outage-count">0</dd>
+            </div>
+          </dl>
+        </article>
+
+        <div class="metrics-grid">
+          <article class="card metric-card">
+            <h2>Input voltage</h2>
+            <p id="metric-input" class="metric-value">—</p>
+            <p id="metric-input-sub" class="metric-sub">—</p>
+          </article>
+          <article class="card metric-card">
+            <h2>Output voltage</h2>
+            <p id="metric-output" class="metric-value">—</p>
+            <p id="metric-output-sub" class="metric-sub">—</p>
+          </article>
+          <article class="card metric-card">
+            <h2>Load</h2>
+            <p id="metric-load" class="metric-value">—</p>
+            <div class="meter" aria-hidden="true">
+              <span id="load-bar"></span>
+            </div>
+          </article>
+          <article class="card metric-card">
+            <h2>Frequency</h2>
+            <p id="metric-frequency" class="metric-value">—</p>
+            <p id="metric-frequency-sub" class="metric-sub">—</p>
+          </article>
+          <article class="card metric-card">
+            <h2>Temperature</h2>
+            <p id="metric-temperature" class="metric-value">—</p>
+            <p class="metric-sub">Reported by the UPS when available</p>
+          </article>
+          <article class="card metric-card">
+            <h2>Last update</h2>
+            <p id="metric-updated" class="metric-value metric-time">—</p>
+            <p id="metric-age" class="metric-sub">—</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="card charts-card" aria-label="Historical charts">
+        <div class="section-head">
+          <div>
+            <h2>History</h2>
+            <p class="section-sub">One sample per second, downsampled for the selected range.</p>
+          </div>
+          <div class="range-selector" role="group" aria-label="History range">
+            <button type="button" data-hours="1" class="range-btn active">1 h</button>
+            <button type="button" data-hours="6" class="range-btn">6 h</button>
+            <button type="button" data-hours="24" class="range-btn">24 h</button>
+            <button type="button" data-hours="168" class="range-btn">7 d</button>
+            <button type="button" data-hours="720" class="range-btn">30 d</button>
+          </div>
+        </div>
+
+        <div class="charts-grid">
+          <div class="chart-block">
+            <div class="chart-title">
+              <h3>Voltage</h3>
+              <span class="legend"><i class="swatch swatch-input"></i>Input <i class="swatch swatch-output"></i>Output</span>
+            </div>
+            <div class="chart-wrap">
+              <canvas id="voltage-chart" aria-label="Input and output voltage chart" role="img"></canvas>
+              <p class="chart-empty">No data for this range yet.</p>
+            </div>
+          </div>
+
+          <div class="chart-block">
+            <div class="chart-title">
+              <h3>Battery</h3>
+              <span class="legend"><i class="swatch swatch-battery"></i>Voltage <i class="swatch swatch-charge"></i>Charge</span>
+            </div>
+            <div class="chart-wrap">
+              <canvas id="battery-chart" aria-label="Battery voltage and charge chart" role="img"></canvas>
+              <p class="chart-empty">No data for this range yet.</p>
+            </div>
+          </div>
+
+          <div class="chart-block chart-wide">
+            <div class="chart-title">
+              <h3>Load and output power</h3>
+              <span class="legend"><i class="swatch swatch-load"></i>Load % <i class="swatch swatch-power"></i>Power W</span>
+            </div>
+            <div class="chart-wrap">
+              <canvas id="load-chart" aria-label="Load and output power chart" role="img"></canvas>
+              <p class="chart-empty">No data for this range yet.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card outages-card" aria-label="Grid outages">
+        <div class="section-head">
+          <div>
+            <h2>Grid outages</h2>
+            <p class="section-sub">Completed outages stored in the local database.</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Started</th>
+                <th>Duration</th>
+                <th>Min battery</th>
+                <th>Min voltage</th>
+                <th>Avg load</th>
+                <th>Energy est.</th>
+              </tr>
+            </thead>
+            <tbody id="outages-body">
+              <tr class="empty-row"><td colspan="6">No outages recorded.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span id="footer-info">UPS Monitor</span>
+      <a href="/docs" target="_blank" rel="noopener">API docs</a>
+    </footer>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <script src="/static/vendor/chart.umd.min.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
